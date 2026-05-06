@@ -1,0 +1,10 @@
+[Unit]
+Description=Listen for desktop events and call respecting hooks
+After=dbus.socket
+
+[Service]
+ExecStart=%h/.local/bin/desktop-event-hooks
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
