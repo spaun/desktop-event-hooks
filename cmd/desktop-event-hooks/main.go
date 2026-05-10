@@ -35,14 +35,14 @@ type hooksStruct struct {
 }
 
 func (hooks *hooksStruct) init(hooksDir string) error {
-	if strings.HasPrefix(hooksDir, "~/") {
+	if hooksDir == "~" || strings.HasPrefix(hooksDir, "~/") {
 		homeDir, err := os.UserHomeDir()
 
 		if err != nil {
 			return err
 		}
 
-		hooksDir = filepath.Join(homeDir, hooksDir[2:])
+		hooksDir = filepath.Join(homeDir, hooksDir[1:])
 	}
 
 	hooks.darkModeChanged = hook{
