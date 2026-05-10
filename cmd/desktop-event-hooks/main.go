@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/godbus/dbus/v5"
 	"golang.org/x/sync/errgroup"
@@ -27,8 +28,9 @@ const MODE_DARK uint32 = 1
 const MODE_LIGHT uint32 = 2
 
 type hook struct {
-	name string
-	path string
+	name    string
+	path    string
+	timeout time.Duration
 }
 
 func expandHomeDir(hooksDir string) (string, error) {
@@ -103,7 +105,7 @@ func listenDarkMode(ctx context.Context, h hook) error {
 				continue
 			}
 
-			err := callHook(h, modeName)
+			err := callHook(ctx, h, modeName)
 
 			if err != nil && !errors.Is(err, errHookNotFound) {
 				slog.Error("hook call failed", "err", err)
@@ -114,7 +116,7 @@ func listenDarkMode(ctx context.Context, h hook) error {
 	}
 }
 
-func callHook(h hook, args ...string) error {
+func callHook(ctx context.Context, h hook, args ...string) error {
 	fileInfo, err := os.Stat(h.path)
 
 	if errors.Is(err, fs.ErrNotExist) {
@@ -129,7 +131,11 @@ func callHook(h hook, args ...string) error {
 		return fmt.Errorf("hook %s (%s): not executable", h.name, h.path)
 	}
 
-	cmd := exec.Command(h.path, args...)
+	ctx, cancel := context.WithTimeout(ctx, h.timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, h.path, args...)
+	cmd.WaitDelay = min(h.timeout, 2*time.Second)
 	out, err := cmd.CombinedOutput()
 
 	if len(out) > 0 {
@@ -143,8 +149,8 @@ func callHook(h hook, args ...string) error {
 	return nil
 }
 
-func run(hooksDir string) error {
-	slog.Info("starting desktop events listener")
+func run(hooksDir string, timeout time.Duration) error {
+	slog.Info("starting desktop events listener", "hooksDir", hooksDir, "timeout", timeout)
 	defer slog.Info("shutting down desktop events listener")
 
 	hooksDir, err := expandHomeDir(hooksDir)
@@ -153,8 +159,9 @@ func run(hooksDir string) error {
 	}
 
 	darkModeHook := hook{
-		name: "dark-mode",
-		path: filepath.Join(hooksDir, "dark-mode-hook"),
+		name:    "dark-mode",
+		path:    filepath.Join(hooksDir, "dark-mode-hook"),
+		timeout: timeout,
 	}
 
 	listeners := []func(context.Context) error{
@@ -176,7 +183,7 @@ func run(hooksDir string) error {
 func main() {
 	hooksDir := flag.String("hooks-path", "~/.local/hooks", "path to hooks directory")
 	showVersion := flag.Bool("version", false, "version")
-
+	timeout := flag.Duration("timeout", 10*time.Second, "hook execution timeout")
 	flag.Parse()
 
 	if *showVersion {
@@ -184,7 +191,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	if err := run(*hooksDir); err != nil {
+	if err := run(*hooksDir, *timeout); err != nil {
 		slog.Error("fatal error", "err", err)
 		os.Exit(1)
 	}
