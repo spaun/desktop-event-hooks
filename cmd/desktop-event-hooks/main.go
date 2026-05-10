@@ -143,22 +143,12 @@ func callHook(h hook, args ...string) error {
 	return nil
 }
 
-func run() error {
-	hooksDir := flag.String("hooks-path", "~/.local/hooks", "path to hooks directory")
-	showVersion := flag.Bool("version", false, "version")
-
-	flag.Parse()
-
-	if *showVersion {
-		fmt.Printf("Desktop event hooks %s\n", version)
-		os.Exit(0)
-	}
-
+func run(hooksDir string) error {
 	slog.Info("starting desktop events listener")
 	defer slog.Info("shutting down desktop events listener")
 
 	var hooks hooksStruct
-	if err := hooks.init(*hooksDir); err != nil {
+	if err := hooks.init(hooksDir); err != nil {
 		return fmt.Errorf("fail to init hook paths: %w", err)
 	}
 
@@ -173,7 +163,17 @@ func run() error {
 }
 
 func main() {
-	if err := run(); err != nil {
+	hooksDir := flag.String("hooks-path", "~/.local/hooks", "path to hooks directory")
+	showVersion := flag.Bool("version", false, "version")
+
+	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("Desktop event hooks %s\n", version)
+		os.Exit(0)
+	}
+
+	if err := run(*hooksDir); err != nil {
 		slog.Error("fatal error", "err", err)
 		os.Exit(1)
 	}
