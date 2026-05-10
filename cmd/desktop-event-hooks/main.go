@@ -186,12 +186,21 @@ func main() {
 	hooksDir := flag.String("hooks-path", "~/.local/hooks", "path to hooks directory")
 	showVersion := flag.Bool("version", false, "version")
 	timeout := flag.Duration("timeout", 10*time.Second, "hook execution timeout")
+	logLevel := flag.String("log-level", "info", "log level (debug, info, warn, error)")
+
 	flag.Parse()
 
 	if *showVersion {
 		fmt.Printf("Desktop event hooks %s\n", version)
 		os.Exit(0)
 	}
+
+	var level slog.Level
+	if err := level.UnmarshalText([]byte(*logLevel)); err != nil {
+		fmt.Fprintf(os.Stderr, "invalid log level %q: %v\n", *logLevel, err)
+		os.Exit(1)
+	}
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})))
 
 	if err := run(*hooksDir, *timeout); err != nil {
 		slog.Error("fatal error", "err", err)
