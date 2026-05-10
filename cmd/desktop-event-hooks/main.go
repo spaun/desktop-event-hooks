@@ -22,8 +22,9 @@ import (
 var version = "dev"
 var errHookNotFound = errors.New("hook not found")
 
-// 0 - default (usually light), 1 - dark, 2 - light
+const MODE_DEFAULT uint32 = 0
 const MODE_DARK uint32 = 1
+const MODE_LIGHT uint32 = 2
 
 type hook struct {
 	name string
@@ -97,10 +98,18 @@ func (hooks *hooksStruct) listenDarkMode(ctx context.Context) error {
 
 			currentMode = mode
 
-			modeName := "light"
+			var modeName string
 
-			if mode == MODE_DARK {
+			switch mode {
+			case MODE_DEFAULT:
+				modeName = "default"
+			case MODE_DARK:
 				modeName = "dark"
+			case MODE_LIGHT:
+				modeName = "light"
+			default:
+				slog.Warn("unknown mode value", "mode", mode)
+				continue
 			}
 
 			err := callHook(hooks.darkModeChanged, modeName)
