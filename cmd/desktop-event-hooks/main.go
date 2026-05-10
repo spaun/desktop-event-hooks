@@ -137,12 +137,18 @@ func callHook(h hook, args ...string) error {
 }
 
 func run() error {
-	slog.Info("starting desktop events listener")
-	defer slog.Info("shutting down desktop events listener")
-
 	hooksDir := flag.String("hooks-path", "~/.local/hooks", "path to hooks directory")
+	showVersion := flag.Bool("version", false, "version")
 
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("Desktop event hooks %s\n", version)
+		os.Exit(0)
+	}
+
+	slog.Info("starting desktop events listener")
+	defer slog.Info("shutting down desktop events listener")
 
 	var hooks hooksStruct
 	if err := hooks.init(*hooksDir); err != nil {
