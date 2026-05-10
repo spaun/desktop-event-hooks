@@ -6,7 +6,7 @@ A lightweight daemon that listens for desktop events via D-Bus and calls user-de
 
 | Event | Hook script | Arguments |
 |-------|-------------|-----------|
-| Dark/light mode changed | `dark-mode-hook` | `dark` or `light` |
+| Dark/light mode changed | `dark-mode-hook` | `dark`, `light`, or `default` |
 
 The daemon subscribes to `org.freedesktop.portal.Settings` on the session bus and fires the hook whenever the `org.freedesktop.appearance color-scheme` setting changes.
 
@@ -18,10 +18,10 @@ Example `~/.local/hooks/dark-mode-hook`:
 
 ```sh
 #!/bin/sh
-# $1 is "dark" or "light"
+# $1 is "dark", "light", or "default"
 case "$1" in
-  dark)  gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark' ;;
-  light) gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita' ;;
+  dark)    gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark' ;;
+  light|default) gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita' ;;
 esac
 ```
 
@@ -41,12 +41,15 @@ make install  # installs to $GOPATH/bin
 ## Usage
 
 ```
-desktop-event-hooks [-hooks-path <dir>]
+desktop-event-hooks [flags]
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `-hooks-path` | `~/.local/hooks` | Directory containing hook scripts |
+| `-timeout` | `10s` | Hook execution timeout |
+| `-log-level` | `info` | Log level (`debug`, `info`, `warn`, `error`) |
+| `-version` | | Print version and exit |
 
 ## Running as a systemd user service
 
