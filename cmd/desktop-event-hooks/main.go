@@ -20,6 +20,7 @@ import (
 )
 
 var version = "dev"
+var errHookNotFound = errors.New("hook not found")
 
 // 0 - default (usually light), 1 - dark, 2 - light
 const MODE_DARK uint32 = 1
@@ -104,7 +105,7 @@ func (hooks *hooksStruct) listenDarkMode(ctx context.Context) error {
 
 			err := callHook(hooks.darkModeChanged, modeName)
 
-			if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			if err != nil && !errors.Is(err, errHookNotFound) {
 				slog.Error("hook call failed", "err", err)
 			}
 		case <-ctx.Done():
@@ -115,9 +116,15 @@ func (hooks *hooksStruct) listenDarkMode(ctx context.Context) error {
 
 func callHook(h hook, args ...string) error {
 	fileInfo, err := os.Stat(h.path)
+
+	if errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("hook %s (%s): %w", h.name, h.path, errHookNotFound)
+	}
+
 	if err != nil {
 		return fmt.Errorf("hook %s (%s): %w", h.name, h.path, err)
 	}
+
 	if fileInfo.Mode()&0100 == 0 {
 		return fmt.Errorf("hook %s (%s): not executable", h.name, h.path)
 	}
