@@ -107,7 +107,9 @@ func listenDarkMode(ctx context.Context, h hook) error {
 
 			err := callHook(ctx, h, modeName)
 
-			if err != nil && !errors.Is(err, errHookNotFound) {
+			if errors.Is(err, errHookNotFound) {
+				slog.Debug("hook not installed", "hook", h.name, "path", h.path)
+			} else if err != nil {
 				slog.Error("hook call failed", "err", err)
 			}
 		case <-ctx.Done():
@@ -120,7 +122,7 @@ func callHook(ctx context.Context, h hook, args ...string) error {
 	fileInfo, err := os.Stat(h.path)
 
 	if errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("hook %s (%s): %w", h.name, h.path, errHookNotFound)
+		return errHookNotFound
 	}
 
 	if err != nil {
