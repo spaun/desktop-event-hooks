@@ -31,30 +31,21 @@ type hook struct {
 	path string
 }
 
-type hooksStruct struct {
-	darkModeChanged hook
-}
-
-func (hooks *hooksStruct) init(hooksDir string) error {
+func expandHomeDir(hooksDir string) (string, error) {
 	if hooksDir == "~" || strings.HasPrefix(hooksDir, "~/") {
 		homeDir, err := os.UserHomeDir()
 
 		if err != nil {
-			return err
+			return hooksDir, err
 		}
 
 		hooksDir = filepath.Join(homeDir, hooksDir[1:])
 	}
 
-	hooks.darkModeChanged = hook{
-		name: "dark-mode",
-		path: filepath.Join(hooksDir, "dark-mode-hook"),
-	}
-
-	return nil
+	return hooksDir, nil
 }
 
-func (hooks *hooksStruct) listenDarkMode(ctx context.Context) error {
+func listenDarkMode(ctx context.Context, h hook) error {
 	conn, err := dbus.ConnectSessionBus()
 	if err != nil {
 		return fmt.Errorf("fail to connect to session bus: %w", err)
@@ -112,7 +103,7 @@ func (hooks *hooksStruct) listenDarkMode(ctx context.Context) error {
 				continue
 			}
 
-			err := callHook(hooks.darkModeChanged, modeName)
+			err := callHook(h, modeName)
 
 			if err != nil && !errors.Is(err, errHookNotFound) {
 				slog.Error("hook call failed", "err", err)
@@ -156,9 +147,18 @@ func run(hooksDir string) error {
 	slog.Info("starting desktop events listener")
 	defer slog.Info("shutting down desktop events listener")
 
-	var hooks hooksStruct
-	if err := hooks.init(hooksDir); err != nil {
+	hooksDir, err := expandHomeDir(hooksDir)
+	if err != nil {
 		return fmt.Errorf("fail to init hook paths: %w", err)
+	}
+
+	darkModeHook := hook{
+		name: "dark-mode",
+		path: filepath.Join(hooksDir, "dark-mode-hook"),
+	}
+
+	listeners := []func(context.Context) error{
+		func(ctx context.Context) error { return listenDarkMode(ctx, darkModeHook) },
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -166,7 +166,9 @@ func run(hooksDir string) error {
 
 	g, ctx := errgroup.WithContext(ctx)
 
-	g.Go(func() error { return hooks.listenDarkMode(ctx) })
+	for _, l := range listeners {
+		g.Go(func() error { return l(ctx) })
+	}
 
 	return g.Wait()
 }
