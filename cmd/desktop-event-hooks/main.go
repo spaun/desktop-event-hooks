@@ -123,7 +123,13 @@ func callHook(h hook, args ...string) error {
 	}
 
 	cmd := exec.Command(h.path, args...)
-	if err := cmd.Run(); err != nil {
+	out, err := cmd.CombinedOutput()
+
+	if len(out) > 0 {
+		slog.Info("hook output", "hook", h.name, "output", strings.TrimSpace(string(out)))
+	}
+
+	if err != nil {
 		return fmt.Errorf("hook %s (%s): %w", h.name, h.path, err)
 	}
 
