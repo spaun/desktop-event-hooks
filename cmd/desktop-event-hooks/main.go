@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"syscall"
 	"time"
@@ -20,7 +21,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-var version = "dev"
+var version = ""
 var errHookNotFound = errors.New("hook not found")
 
 const MODE_DEFAULT uint32 = 0
@@ -31,6 +32,31 @@ type hook struct {
 	name    string
 	path    string
 	timeout time.Duration
+}
+
+func getVersion() string {
+	if version != "" {
+		return version
+	}
+
+	info, ok := debug.ReadBuildInfo()
+
+	if !ok {
+		return "dev"
+	}
+
+	v := info.Main.Version
+	if v == "" || v == "(devel)" {
+		v = "dev"
+		for _, s := range info.Settings {
+			if s.Key == "vcs.revision" {
+				v = s.Value[:7]
+				break
+			}
+		}
+	}
+
+	return v
 }
 
 func expandHomeDir(hooksDir string) (string, error) {
@@ -191,7 +217,7 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Printf("Desktop event hooks %s\n", version)
+		fmt.Printf("Desktop event hooks %s\n", getVersion())
 		os.Exit(0)
 	}
 
