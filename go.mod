@@ -1,4 +1,4 @@
-module desktop-event-hooks
+module github.com/spaun/desktop-event-hooks
 
 go 1.26.1
 
